@@ -1,0 +1,27 @@
+{
+  "name": "opencode-project-memory",
+  "version": "0.1.0",
+  "description": "Claude-Code-style project memory for opencode using repo-local MEMORY.md indexes.",
+  "type": "module",
+  "main": "src/plugin.js",
+  "exports": {
+    ".": "./src/plugin.js",
+    "./cli": "./src/cli.js"
+  },
+  "bin": {
+    "opencode-memory": "./src/cli.js"
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "check": "node src/cli.js doctor --repo . && node src/cli.js refresh --repo . && npm pack --dry-run"
+  },
+  "keywords": [
+    "opencode",
+    "plugin",
+    "memory"
+  ],
+  "license": "MIT"
+}
