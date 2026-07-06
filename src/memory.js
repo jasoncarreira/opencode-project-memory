@@ -1,5 +1,5 @@
-import { appendFileSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, statSync, writeFileSync } from "node:fs";
-import { dirname, join, relative, resolve, sep } from "node:path";
+import { closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { join, relative, resolve, sep } from "node:path";
 import { spawnSync } from "node:child_process";
 
 export const START = "<!-- opencode-memory:index:start -->";
@@ -11,7 +11,6 @@ export function resolveOptions(options = {}) {
     index: options.index || "MEMORY.md",
     maxIndexBytes: Number(options.maxIndexBytes || 25_000),
     maxIndexLines: Number(options.maxIndexLines || 200),
-    gitExclude: options.gitExclude !== false,
   };
 }
 
@@ -27,7 +26,6 @@ export function ensureProjectMemory(cwd = process.cwd(), options = {}) {
   const indexPath = join(dir, opts.index);
   mkdirSync(dir, { recursive: true });
   if (!existsSync(indexPath)) writeFileSync(indexPath, initialIndex(), "utf8");
-  if (opts.gitExclude) ensureGitInfoExclude(repo, normalizePattern(opts.memoryDir));
   const entries = listMemoryFiles(dir, opts.index);
   const updated = writeGeneratedIndex(indexPath, entries);
   return { repo, dir, indexPath, entries, updated };
@@ -160,20 +158,6 @@ function capUtf8(content, maxBytes) {
   let end = maxBytes;
   while (end > 0 && (buffer[end] & 0b11000000) === 0b10000000) end -= 1;
   return buffer.subarray(0, end).toString("utf8");
-}
-
-function ensureGitInfoExclude(repo, pattern) {
-  const proc = spawnSync("git", ["rev-parse", "--git-path", "info/exclude"], { cwd: repo, encoding: "utf8" });
-  if (proc.status !== 0) return;
-  const excludePath = resolve(repo, proc.stdout.trim());
-  mkdirSync(dirname(excludePath), { recursive: true });
-  const current = existsSync(excludePath) ? readFileSync(excludePath, "utf8") : "";
-  if (current.split(/\r?\n/).includes(pattern)) return;
-  appendFileSync(excludePath, `${current.endsWith("\n") || !current ? "" : "\n"}${pattern}\n`);
-}
-
-function normalizePattern(memoryDir) {
-  return memoryDir.replace(/\\/g, "/").replace(/^\.\//, "").replace(/\/?$/, "/");
 }
 
 function escapeRegExp(value) {

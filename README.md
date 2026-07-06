@@ -39,11 +39,11 @@ opencode-memory context --repo /path/to/repo
 ## Behavior
 
 - Creates `.opencode/memory/MEMORY.md` if missing.
-- Adds `.opencode/memory/` to `.git/info/exclude` for local-only memory.
 - Regenerates the generated topic index from files under `.opencode/memory/`.
 - Injects the capped `MEMORY.md` content into session system prompts for each model request.
 - Does not inject memory into compaction, so memory content is not repeatedly summarized into session history.
 - Does not call a model, summarize files, or automatically decide what is worth remembering.
+- Does not modify `.gitignore` or `.git/info/exclude`; decide per project whether memory should be tracked.
 
 Topic file descriptions are optional. Put a first-line description comment in a topic file to show it in the generated index:
 
@@ -63,8 +63,7 @@ Topic file descriptions are optional. Put a first-line description comment in a 
         "memoryDir": ".opencode/memory",
         "index": "MEMORY.md",
         "maxIndexBytes": 25000,
-        "maxIndexLines": 200,
-        "gitExclude": true
+        "maxIndexLines": 200
       }
     ]
   ]
