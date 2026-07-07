@@ -15,7 +15,7 @@ Commands:
   install [--local]             Add this package to ~/.config/opencode/opencode.jsonc
   refresh [--repo PATH]         Create/update .opencode/memory/MEMORY.md
   doctor [--repo PATH]          Check project memory state
-  context [--repo PATH]         Print the compaction context block
+  context [--repo PATH]         Print the project memory context block
 `);
 }
 
