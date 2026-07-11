@@ -1,72 +1,109 @@
 # opencode-project-memory
 
-Claude-Code-style project memory for opencode using a repo-local `MEMORY.md` index.
+Claude-Code-style project memory for opencode, backed by a repository-local `MEMORY.md` index. This document describes version 0.1.0 as verified from this repository's package metadata, source, tests, and workflows; it does not assume registry availability or undocumented host behavior.
 
-The plugin keeps durable project notes under:
+## Requirements
+
+- Node.js 20 or newer (`>=20`).
+- Git for Git-worktree root discovery. Outside a Git worktree, commands fall back to the resolved starting directory.
+- An opencode installation for plugin use. The package itself has no production dependencies.
+
+## Installation
+
+Repository evidence does not establish whether `opencode-project-memory@0.1.0` is available from your configured npm registry. If you independently verify that it is available, install it in a consumer project and run its binary from that installation, then register the package:
+
+```sh
+npm install opencode-project-memory@0.1.0
+./node_modules/.bin/opencode-memory install
+```
+
+The fully repository-verified path is to build a tarball from a source checkout and install it into a consumer project:
+
+```sh
+# In this source checkout
+npm ci
+npm pack
+
+# In the consumer project; use the tarball path printed above
+npm install /path/to/opencode-project-memory-0.1.0.tgz
+./node_modules/.bin/opencode-memory install
+```
+
+The tarball contains `src`, `README.md`, `LICENSE`, and npm-generated package metadata; repository tests and guides are not packed. From a source checkout, invoke the CLI directly as `node src/cli.js <command>` after `npm ci`; that is development use, not equivalent to installing the packed package and its `opencode-memory` bin.
+
+`install` rewrites `~/.config/opencode/opencode.jsonc` and instructs you to restart opencode. `install --local` instead writes a `file://` URL for `src/plugin.js` in the package containing the **running CLI**. It does not select an arbitrary current checkout based on the invocation directory; run the intended checkout's `node src/cli.js install --local` when developing that checkout.
+
+## Quick start
+
+Register the plugin, refresh an existing repository, and inspect the resulting context:
+
+```sh
+./node_modules/.bin/opencode-memory install
+./node_modules/.bin/opencode-memory refresh --repo /path/to/repository
+./node_modules/.bin/opencode-memory context --repo /path/to/repository
+```
+
+All three commands above can write files. Review `.opencode/memory/MEMORY.md`, decide whether its contents are appropriate for model prompts, and restart opencode after registration.
+
+## Repository selection
+
+For `refresh`, `doctor`, and `context`, the starting directory is selected as follows:
+
+1. With no `--repo`, use the invocation's current working directory.
+2. `--repo PATH` resolves `PATH` against that working directory. If repeated, the last exact `--repo PATH` occurrence wins.
+3. Git discovery runs from that resolved directory. Inside a Git worktree, the Git top-level directory wins; if Git discovery fails, the resolved directory itself is used.
+
+`--repo` is a Git-discovery starting point, not necessarily the final memory root, and it does not apply to `install`. Supported option forms are `install --local` and `refresh|doctor|context --repo PATH`. Forms such as `--repo=PATH`, other options, and extra positionals are unsupported even if the current minimal parser happens to ignore some of them. Use existing directories: a missing value or file-valued root fails, while a nonexistent fallback path may be created as an incidental consequence and should not be relied upon.
+
+## CLI reference
+
+There are no dry-run or confirmation modes. On failure the CLI prints `error: ...`, exits with status 1, and does not roll back earlier writes.
+
+| Command | Reads and mutations | Result and repeat behavior |
+|---|---|---|
+| no command, `--help`, `-h` | Prints usage; does not mutate repository state. | Exits successfully. |
+| `install [--local]` | Creates the global config parent and rewrites `~/.config/opencode/opencode.jsonc`. The default adds `opencode-project-memory`; `--local` adds the running package's plugin file URL. | Initializes `$schema` and `plugin` when absent and deduplicates only the exact plugin spec. Every successful run rewrites JSON, so comments and formatting are not preserved. |
+| `refresh [--repo PATH]` | Creates the memory directory/index when absent and rewrites generated index content when needed. | Reports index path, topic count, and whether content changed; repeating it is content-idempotent only when discovered entries are unchanged. |
+| `doctor [--repo PATH]` | **Mutating repair/check:** ensures and refreshes memory before reporting index, repository, and topic status. | Can create or rewrite memory; it is not read-only. |
+| `context [--repo PATH]` | **Mutating inspection:** ensures and refreshes memory, then reads and prints capped prompt context. | Can create or rewrite memory; it is distinct from the plugin's read-only chat transform. |
+
+Unknown commands fail with status 1. `install` accepts only limited JSONC: whole-line `//` comments and block comments are stripped before `JSON.parse`; inline comments, trailing commas, malformed JSON, or an incompatible `plugin` shape can fail after the config parent has been created.
+
+## Plugin lifecycle
+
+The async plugin factory returns hooks without doing initialization I/O. Its working-directory precedence is `input.cwd`, `input.directory`, `ctx.directory`, `ctx.worktree`, then the host process working directory; this is separate from CLI `--repo` selection.
+
+- Only exact `session.created` and `file.edited` events call the mutating ensure/refresh path. Other events are ignored; there is no continuous watcher.
+- When the host invokes `experimental.chat.system.transform` with a truthy `sessionID`, the hook appends one read-only project-memory block. Without a session ID it does nothing. Repository evidence does not establish that the host invokes this for every request.
+- The read-only transform does not create a missing index; it emits a placeholder. Event hooks may already have created/refreshed the index.
+- There is no shutdown/dispose hook. Filesystem and invalid-output-shape errors are not suppressed and reject to the host; host recovery behavior is unknown.
+
+## Memory files and topic discovery
+
+The default layout is:
 
 ```text
 .opencode/memory/
   MEMORY.md
-  <topic files>
+  <topic files and directories>
 ```
 
-`MEMORY.md` stays concise. Humans and agents edit the curated sections, while the plugin maintains only the generated topic-list block between these markers:
+The mutating path creates an initial index with curated content and a generated block:
 
 ```markdown
 <!-- opencode-memory:index:start -->
 <!-- opencode-memory:index:end -->
 ```
 
-## Install
+Refresh replaces only marker-bounded generated content and preserves content outside it. If the markers are absent, it appends a generated section. Put human-maintained guidance outside the generated block.
 
-Install the published package and register it with opencode:
+Topic discovery recursively includes regular files under the memory directory, excluding the root index and every path containing a dot-prefixed segment. There is no extension allowlist. Entries use slash-normalized lexical paths and lexical ordering. An optional description must be a complete first line matching `<!-- desc: ... -->`; discovery reads at most the first 1,024 bytes of each file to find it.
 
-```sh
-npm install -g opencode-project-memory
-opencode-memory install
-```
+Symlinks are followed. File-link targets can provide descriptions; directory links are traversed and indexed under lexical link paths. There is no realpath containment check, visited-directory set, or cycle detection, and dot-path filtering is not a traversal security boundary. Keep the memory tree repository-contained and symlink-free to avoid escaping the repository or traversal cycles, and inspect `MEMORY.md` before prompt use.
 
-Restart opencode after installing or changing plugin config. opencode loads plugin config only at startup.
+## Configuration
 
-You can also configure the package manually in `~/.config/opencode/opencode.jsonc`:
-
-```jsonc
-{
-  "$schema": "https://opencode.ai/config.json",
-  "plugin": ["opencode-project-memory"]
-}
-```
-
-## Usage
-
-Initialize or refresh a repo's memory index:
-
-```sh
-opencode-memory refresh --repo /path/to/repo
-```
-
-Check that the memory index is present and readable:
-
-```sh
-opencode-memory doctor --repo /path/to/repo
-```
-
-Print the context block the plugin injects into opencode sessions:
-
-```sh
-opencode-memory context --repo /path/to/repo
-```
-
-After `refresh`, add topic files next to `MEMORY.md`. Topic file descriptions are optional. Put a first-line description comment in a topic file to show it in the generated index:
-
-```markdown
-<!-- desc: User preferences and durable project conventions -->
-# Preferences
-```
-
-## Config
-
-Use tuple form when you want non-default plugin options:
+The CLI has no memory-option flags beyond `--repo`; memory options come only from the options object supplied by the plugin host. This package defines no environment-variable or project-config source for them. For a host supporting opencode's tuple-form plugin options:
 
 ```jsonc
 {
@@ -85,54 +122,58 @@ Use tuple form when you want non-default plugin options:
 }
 ```
 
-Options:
+| Option | Default | Behavior |
+|---|---:|---|
+| `memoryDir` | `.opencode/memory` | Memory path resolved from the selected repository root. |
+| `index` | `MEMORY.md` | Index path within the memory directory. |
+| `maxIndexBytes` | `25000` | UTF-8-safe byte cap on injected index text. |
+| `maxIndexLines` | `200` | Line cap applied after the byte cap. |
 
-- `memoryDir`: repo-relative memory directory. Default: `.opencode/memory`.
-- `index`: index filename inside `memoryDir`. Default: `MEMORY.md`.
-- `maxIndexBytes`: maximum injected index bytes. Default: `25000`.
-- `maxIndexLines`: maximum injected index lines. Default: `200`.
+Use nonempty repository-relative paths and positive finite cap values. The package performs no path sandboxing and no type/range validation; absolute, traversing, nonnumeric, zero, negative, or infinite values are not supported configuration guidance. When either cap truncates content, the exact marker `[Project memory index truncated by plugin cap.]` is appended. Truncation is not redaction.
 
-## Behavior
+## Privacy and security boundary
 
-- Creates `.opencode/memory/MEMORY.md` when you run `refresh`, `doctor`, or `context`.
-- Regenerates the generated topic index from files under `.opencode/memory/`.
-- Injects capped `MEMORY.md` content into session system prompts for each model request.
-- Uses read-only injection during chat so a missing memory index is not created just because a session starts.
-- Does not call a model, summarize files, or automatically decide what is worth remembering.
-- Does not modify `.gitignore` or `.git/info/exclude`; decide per project whether memory should be tracked.
+CLI commands and handled events can read topic metadata and persist `MEMORY.md`, including generated lexical topic paths and descriptions. Description discovery reads up to 1,024 bytes from local files or followed link targets. The runtime never changes `.gitignore` or `.git/info/exclude`; whether memory is committed, ignored, or otherwise shared is repository policy.
 
-## Local Development
+When the host invokes the read-only transform, the capped raw index plus fixed instructions becomes system context and may be sent to the configured model provider. This can include curated index text and generated paths/descriptions, including descriptions read through symlinks. Topic bodies are not directly injected by this hook, but their descriptions can be. The package implements no redaction, encryption, sensitivity classification, consent flow, access control, or provider-retention policy. Local persistence and model-provider prompt exposure are separate boundaries: inspect the index and avoid secrets in both curated text and discoverable metadata.
 
-For local plugin development:
+## Supported workflows
 
 ```sh
-npm link
-opencode-memory install --local
+# Source-checkout local registration (writes global opencode config)
+node src/cli.js install --local
+
+# Refresh from an existing nested directory; Git top-level is selected
+./node_modules/.bin/opencode-memory refresh --repo ./existing/nested-directory
+
+# Repair and report memory state (mutating)
+./node_modules/.bin/opencode-memory doctor --repo /path/to/repository
+
+# Print prompt context after ensuring/refreshing it (mutating)
+./node_modules/.bin/opencode-memory context --repo /path/to/repository
 ```
 
-`--local` writes a `file://` plugin URL that points at the current checkout or installed package. Use the default `install` command for published-package usage.
-
-## Release Checks
-
-Run the deterministic package checks before publishing:
-
-```sh
-npm test
-npm run pack-smoke
-npm run check
-```
-
-`npm run pack-smoke` creates an npm tarball, installs it into a scratch consumer project, imports the plugin from `node_modules`, exercises the CLI binary, and verifies isolated opencode config installation.
-
-Inspect the exact publish contents with:
-
-```sh
-npm pack --dry-run
-```
+To add a topic, create a non-hidden regular file under the memory directory, optionally add a strict first-line description, then run `refresh`. Registration with `install` or `install --local` is exact-spec idempotent, so changing between those forms can leave both distinct entries for you to reconcile.
 
 ## Troubleshooting
 
-- Restart opencode after `opencode-memory install`; running sessions keep the old plugin config.
-- If the plugin is configured but memory is not visible, run `opencode-memory context --repo /path/to/repo` to inspect the injected block.
-- If `MEMORY.md` is missing, run `opencode-memory refresh --repo /path/to/repo`.
-- If you want shared team memory, commit `.opencode/memory/`. If memory is personal, keep it ignored or excluded.
+- **Package cannot be installed:** verify registry availability separately, use Node.js `>=20`, or use the verified local-tarball procedure. Do not confuse `node src/cli.js` source use with a packed consumer installation.
+- **Memory appears in an unexpected parent:** Git top-level wins over the `--repo` starting directory. Run `git rev-parse --show-toplevel` there. Outside Git, the resolved starting directory is used.
+- **`--repo` fails or behaves unexpectedly:** use exact `--repo PATH` with an existing directory. A missing value or file path fails; `--repo=PATH` and unlisted options are unsupported. Repeated exact options use the last value.
+- **Install config fails:** check `~/.config/opencode/opencode.jsonc` for malformed or unsupported JSONC and ensure `plugin` is an array. The command rewrites formatting/comments and has no rollback.
+- **Topic is absent:** ensure it is below the memory directory, is not the root index, and no path segment starts with `.`. Descriptions must be a complete first-line marker within the first 1,024 bytes. Remove symlinks and cycles before retrying.
+- **Plugin is not loaded:** ensure the configured package or file URL resolves in the host environment, then follow the CLI's restart instruction. Registry status and host plugin-resolution behavior are outside this repository's proof.
+- **`doctor` or `context` changed files:** expected; both ensure and refresh memory first. Only the chat transform uses the read-only path.
+- **Filesystem error:** path, permission, read, and write errors propagate. Earlier directory/config/index writes are not transactionally rolled back.
+
+## Contributing and releasing
+
+Repository contributors should follow [CONTRIBUTING.md](CONTRIBUTING.md). Release operators should follow [RELEASING.md](RELEASING.md). These repository-only guides are not included in the npm tarball, so consumer-critical behavior remains documented here.
+
+## Verification sources
+
+Material claims above are traceable to `package.json`/`package-lock.json`, `src/cli.js`, `src/plugin.js`, `src/memory.js`, `test/memory.test.mjs`, `test/package-smoke.mjs`, and `.github/workflows/{ci,publish}.yml`. Those files establish package and repository behavior, not npm registry availability, model-provider retention, host hook frequency/recovery, or external approval policy.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
