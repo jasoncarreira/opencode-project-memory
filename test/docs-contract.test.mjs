@@ -42,6 +42,9 @@ test("README requirements and installation stay aligned with package metadata", 
   assert.match(installation, /does not establish whether `opencode-project-memory@0\.1\.0` is available/);
   assert.match(installation, /If you independently verify that it is available/);
   assert.match(installation, /fully repository-verified path[\s\S]*tarball/);
+  assert.match(installation, /npm install \/path\/to\/opencode-project-memory-0\.1\.0\.tgz[\s\S]*opencode-memory install --local/);
+  assert.match(installation, /`install --local` is required[\s\S]*registers the plugin file from the installed tarball/);
+  assert.match(installation, /Plain `install`[\s\S]*depends on the host resolving `opencode-project-memory`/);
   assert.match(installation, /`node src\/cli\.js <command>`/);
   assert.match(installation, /`install --local`[\s\S]*package containing the \*\*running CLI\*\*/);
 
@@ -69,8 +72,13 @@ test("README links repository guides and retains the required semantic headings"
   ]) {
     section(readme, heading);
   }
-  assert.match(readme, /\[CONTRIBUTING\.md\]\(CONTRIBUTING\.md\)/);
-  assert.match(readme, /\[RELEASING\.md\]\(RELEASING\.md\)/);
+  assert.match(readme, /\[CONTRIBUTING\.md\]\(https:\/\/github\.com\/jasoncarreira\/opencode-project-memory\/blob\/main\/CONTRIBUTING\.md\)/);
+  assert.match(readme, /\[RELEASING\.md\]\(https:\/\/github\.com\/jasoncarreira\/opencode-project-memory\/blob\/main\/RELEASING\.md\)/);
+
+  const packedTopLevelFiles = new Set(packageJson.files.filter((entry) => !entry.includes("/")));
+  for (const match of readme.matchAll(/\[[^\]]+\]\((?!https?:|#)([^)#]+)(?:#[^)]+)?\)/g)) {
+    assert.ok(packedTopLevelFiles.has(match[1]), `README relative link target is not packed: ${match[1]}`);
+  }
 });
 
 test("CLI mutation table and repository selection describe only supported exact syntax", () => {
@@ -325,6 +333,9 @@ test("release guide dynamically matches package metadata and publish workflow", 
   assert.match(releasing, /`publishConfig\.access: public`/);
   assert.match(releasing, /Run `npm run check`/);
   assert.match(releasing, /Run `npm publish`/);
+  assert.match(releasing, /Query npm for the exact package version/);
+  assert.match(releasing, /only when that exact version is absent/);
+  assert.match(releasing, /already exists[\s\S]*without attempting a duplicate publication/);
   assert.match(section(releasing, "Validate"), /```sh\nnpm ci\nnpm run check\n```/);
   assert.match(section(releasing, "Workflow stages"), /Run `npm ci`/);
   assert.match(releasing, /failure[\s\S]*prevents the later `npm publish` step/i);
@@ -345,6 +356,11 @@ test("release guide dynamically matches package metadata and publish workflow", 
   assert.match(publishWorkflow, /GITHUB_REF_NAME !== expected/);
   assert.match(publishWorkflow, /`v\$\{require\("\.\/package\.json"\)\.version\}`/);
   assert.match(publishWorkflow, /run: npm run check/);
+  assert.match(publishWorkflow, /name: Check registry version[\s\S]*id: registry/);
+  assert.match(publishWorkflow, /registry\.npmjs\.org[\s\S]*response\.status !== 200 && response\.status !== 404/);
+  assert.match(publishWorkflow, /GITHUB_OUTPUT[\s\S]*published=\$\{response\.status === 200\}/);
+  assert.match(publishWorkflow, /if: steps\.registry\.outputs\.published != 'true'[\s\S]*run: npm publish/);
+  assert.match(publishWorkflow, /if: steps\.registry\.outputs\.published == 'true'[\s\S]*skipping npm publish/);
   assert.match(publishWorkflow, /run: npm publish/);
 });
 
@@ -368,9 +384,9 @@ test("documents consistently preserve configuration, privacy, contribution, and 
 
   assert.match(section(readme, "Privacy and security boundary"), /may be sent to the configured model provider/);
   assert.match(policy, /model-provider retention/);
-  assert.match(section(readme, "Contributing and releasing"), /\[CONTRIBUTING\.md\]\(CONTRIBUTING\.md\)/);
+  assert.match(section(readme, "Contributing and releasing"), /\[CONTRIBUTING\.md\]\(https:\/\/github\.com\/jasoncarreira\/opencode-project-memory\/blob\/main\/CONTRIBUTING\.md\)/);
   assert.match(section(contributing, "Required checks"), /npm run check/);
-  assert.match(section(readme, "Contributing and releasing"), /\[RELEASING\.md\]\(RELEASING\.md\)/);
+  assert.match(section(readme, "Contributing and releasing"), /\[RELEASING\.md\]\(https:\/\/github\.com\/jasoncarreira\/opencode-project-memory\/blob\/main\/RELEASING\.md\)/);
   assert.match(section(contributing, "Releases"), /\[RELEASING\.md\]\(RELEASING\.md\)/);
   assert.match(section(releasing, "Evidence boundary"), /does not establish that a version is registry-available/);
   assert.match(section(releasing, "Credentials and approvals"), /external approvals may be required/);

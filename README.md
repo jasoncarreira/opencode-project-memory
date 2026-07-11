@@ -26,8 +26,10 @@ npm pack
 
 # In the consumer project; use the tarball path printed above
 npm install /path/to/opencode-project-memory-0.1.0.tgz
-./node_modules/.bin/opencode-memory install
+./node_modules/.bin/opencode-memory install --local
 ```
+
+`install --local` is required for this registry-independent path: it registers the plugin file from the installed tarball. Plain `install` records the package name and therefore still depends on the host resolving `opencode-project-memory` through its package-resolution mechanism.
 
 The tarball contains `src`, `README.md`, `LICENSE`, and npm-generated package metadata; repository tests and guides are not packed. From a source checkout, invoke the CLI directly as `node src/cli.js <command>` after `npm ci`; that is development use, not equivalent to installing the packed package and its `opencode-memory` bin.
 
@@ -168,7 +170,7 @@ To add a topic, create a non-hidden regular file under the memory directory, opt
 
 ## Contributing and releasing
 
-Repository contributors should follow [CONTRIBUTING.md](CONTRIBUTING.md). Release operators should follow [RELEASING.md](RELEASING.md). These repository-only guides are not included in the npm tarball, so consumer-critical behavior remains documented here.
+Repository contributors should follow [CONTRIBUTING.md](https://github.com/jasoncarreira/opencode-project-memory/blob/main/CONTRIBUTING.md). Release operators should follow [RELEASING.md](https://github.com/jasoncarreira/opencode-project-memory/blob/main/RELEASING.md). These repository-only guides are not included in the npm tarball, so consumer-critical behavior remains documented here.
 
 ## Verification sources
 

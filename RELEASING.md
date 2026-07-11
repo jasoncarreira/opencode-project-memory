@@ -51,7 +51,8 @@ Replace the example with exactly `v<package.json version>`. Pushing any `v*` tag
 5. Run `npm ci`.
 6. Verify `GITHUB_REF_NAME` exactly equals `v${package.json.version}`.
 7. Run `npm run check`.
-8. Run `npm publish` using the package's public-access metadata.
+8. Query npm for the exact package version.
+9. Run `npm publish` using the package's public-access metadata only when that exact version is absent. If it already exists, report the existing version and complete without attempting a duplicate publication.
 
 Public-access metadata, the npmjs registry URL, and OIDC permission do not by themselves prove registry availability, publication authorization, successful publication, npm trusted-publisher setup, credentials, or environment approval rules.
 
@@ -61,7 +62,7 @@ An authorized npm publication identity and external approvals may be required. T
 
 ## Failure and rollback
 
-A failure in install, exact tag/version validation, or checks prevents the later `npm publish` step. Inspect the failed job and fix the underlying source or metadata in a new commit; do not move or reuse a published release tag without an explicit project policy.
+A failure in install, exact tag/version validation, checks, or the registry query prevents the later `npm publish` step. Inspect the failed job and fix the underlying source or metadata in a new commit; do not move or reuse a published release tag without an explicit project policy. A successful exact-version lookup intentionally skips publication, allowing a release tag to record a version that was bootstrapped manually without producing a duplicate-version failure.
 
 This repository defines no npm unpublish, deprecation, registry rollback, or tag-recovery automation. If publication itself partially succeeds or an external approval blocks the job, follow the current npm and repository-owner policy outside this workflow.
 
