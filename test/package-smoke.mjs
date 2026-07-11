@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -204,40 +204,24 @@ test("packed doctor and context create indexes in separate fresh non-Git directo
   });
 });
 
-test("packed discovery follows external file and directory symlinks without injecting topic bodies", (t) => {
+test("packed discovery indexes safe regular files using only the first 1,024 bytes for descriptions", () => {
   withTempDir((dir) => {
     const { bin, consumer, env } = installPackedPackage(dir);
     const project = join(dir, "project");
     const memoryDir = join(project, ".opencode", "memory");
-    const externalDir = join(dir, "external-directory");
-    const externalFile = join(dir, "external-file.md");
-    mkdirSync(memoryDir, { recursive: true });
-    mkdirSync(externalDir);
-    writeFileSync(externalFile, "<!-- desc: External file description -->\nEXTERNAL_FILE_BODY_SENTINEL\n", "utf8");
+    const nestedDir = join(memoryDir, "nested");
+    mkdirSync(nestedDir, { recursive: true });
     writeFileSync(
-      join(externalDir, "nested.md"),
-      "<!-- desc: External directory description -->\nEXTERNAL_DIRECTORY_BODY_SENTINEL\n",
+      join(nestedDir, "topic.md"),
+      "<!-- desc: Nested regular file -->\nNESTED_BODY_SENTINEL\n",
       "utf8",
     );
-
-    try {
-      symlinkSync(externalFile, join(memoryDir, "linked-file.md"), "file");
-      symlinkSync(externalDir, join(memoryDir, "linked-directory"), process.platform === "win32" ? "junction" : "dir");
-    } catch (error) {
-      if (["EACCES", "ENOSYS", "EPERM"].includes(error.code)) {
-        t.skip(`symlinks unsupported: ${error.code}`);
-        return;
-      }
-      throw error;
-    }
-
     writeFileSync(join(memoryDir, "accepted.md"), `${descriptionLineOfLength(1024)}\nACCEPTED_BODY_SENTINEL\n`, "utf8");
     writeFileSync(join(memoryDir, "rejected.md"), `${descriptionLineOfLength(1025)}\nREJECTED_BODY_SENTINEL\n`, "utf8");
 
     run(bin, ["refresh", "--repo", project], { cwd: consumer, env });
     const index = readFileSync(join(memoryDir, "MEMORY.md"), "utf8");
-    assert.match(index, /`linked-file\.md` - External file description/);
-    assert.match(index, /`linked-directory\/nested\.md` - External directory description/);
+    assert.match(index, /`nested\/topic\.md` - Nested regular file/);
     assert.match(index, new RegExp(`\`accepted\\.md\` - ${"x".repeat(1009)}`));
     assert.match(index, /`rejected\.md`\n/);
     assert.doesNotMatch(index, /`rejected\.md` -/);
@@ -256,11 +240,9 @@ console.log(JSON.stringify(output.system));`,
       { cwd: consumer, env },
     );
     const system = JSON.parse(transformed.stdout).join("\n");
-    assert.match(system, /`linked-file\.md` - External file description/);
-    assert.match(system, /`linked-directory\/nested\.md` - External directory description/);
-    assert.doesNotMatch(system, /EXTERNAL_FILE_BODY_SENTINEL/);
-    assert.doesNotMatch(system, /EXTERNAL_DIRECTORY_BODY_SENTINEL/);
+    assert.match(system, /`nested\/topic\.md` - Nested regular file/);
     assert.doesNotMatch(system, /ACCEPTED_BODY_SENTINEL|REJECTED_BODY_SENTINEL/);
+    assert.doesNotMatch(system, /NESTED_BODY_SENTINEL/);
   });
 });
 

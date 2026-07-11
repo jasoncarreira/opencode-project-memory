@@ -99,7 +99,7 @@ Refresh replaces only marker-bounded generated content and preserves content out
 
 Topic discovery recursively includes regular files under the memory directory, excluding the root index and every path containing a dot-prefixed segment. There is no extension allowlist. Entries use slash-normalized lexical paths and lexical ordering. An optional description must be a complete first line matching `<!-- desc: ... -->`; discovery reads at most the first 1,024 bytes of each file to find it.
 
-Symlinks are followed. File-link targets can provide descriptions; directory links are traversed and indexed under lexical link paths. There is no realpath containment check, visited-directory set, or cycle detection, and dot-path filtering is not a traversal security boundary. Keep the memory tree repository-contained and symlink-free to avoid escaping the repository or traversal cycles, and inspect `MEMORY.md` before prompt use.
+Symlinks are unsupported and unsafe. Discovery provides no realpath containment or cycle protection, so do not rely on dot-path filtering as a traversal security boundary. Remove symlinks from the memory tree, then inspect both `MEMORY.md` and the content represented by its entries before prompt use.
 
 ## Configuration
 
@@ -133,9 +133,9 @@ Use nonempty repository-relative paths and positive finite cap values. The packa
 
 ## Privacy and security boundary
 
-CLI commands and handled events can read topic metadata and persist `MEMORY.md`, including generated lexical topic paths and descriptions. Description discovery reads up to 1,024 bytes from local files or followed link targets. The runtime never changes `.gitignore` or `.git/info/exclude`; whether memory is committed, ignored, or otherwise shared is repository policy.
+CLI commands and handled events can read topic metadata and persist `MEMORY.md`, including generated lexical topic paths and descriptions. Description discovery reads up to 1,024 bytes from each discovered file. The runtime never changes `.gitignore` or `.git/info/exclude`; whether memory is committed, ignored, or otherwise shared is repository policy. Symlinks are unsupported and unsafe; remove them and inspect the resulting index and represented content rather than assuming repository containment.
 
-When the host invokes the read-only transform, the capped raw index plus fixed instructions becomes system context and may be sent to the configured model provider. This can include curated index text and generated paths/descriptions, including descriptions read through symlinks. Topic bodies are not directly injected by this hook, but their descriptions can be. The package implements no redaction, encryption, sensitivity classification, consent flow, access control, or provider-retention policy. Local persistence and model-provider prompt exposure are separate boundaries: inspect the index and avoid secrets in both curated text and discoverable metadata.
+When the host invokes the read-only transform, the capped raw index plus fixed instructions becomes system context and may be sent to the configured model provider. Treat curated index content, generated filenames and paths, and descriptions as **untrusted, prompt-injection-capable data**. The plugin inserts that data into privileged system context without escaping, delimiting, or lower-priority isolation. Excluding topic bodies does not make this metadata safe. The package implements no redaction, encryption, sensitivity classification, consent flow, access control, or provider-retention policy. Local persistence and model-provider prompt exposure are separate boundaries: inspect the index and represented content, and avoid secrets or instructions you would not trust in both curated text and discoverable metadata.
 
 ## Supported workflows
 

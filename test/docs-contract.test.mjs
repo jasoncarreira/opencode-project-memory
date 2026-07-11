@@ -232,7 +232,7 @@ test("configuration documents defaults, supported guidance, cap order, and trunc
   assert.match(config, /Truncation is not redaction/);
 });
 
-test("discovery and symlink warnings define recursive, lexical, and 1,024-byte boundaries", () => {
+test("discovery defines safe regular-file boundaries and warns that symlinks are unsupported", () => {
   const discovery = section(readme, "Memory files and topic discovery");
   assertIncludesAll(
     discovery,
@@ -243,27 +243,31 @@ test("discovery and symlink warnings define recursive, lexical, and 1,024-byte b
       "slash-normalized lexical paths and lexical ordering",
       "complete first line matching `<!-- desc: ... -->`",
       "first 1,024 bytes",
-      "Symlinks are followed",
-      "directory links are traversed and indexed under lexical link paths",
-      "no realpath containment check, visited-directory set, or cycle detection",
-      "dot-path filtering is not a traversal security boundary",
-      "repository-contained and symlink-free",
-      "inspect `MEMORY.md` before prompt use",
+      "Symlinks are unsupported and unsafe",
+      "no realpath containment or cycle protection",
+      "do not rely on dot-path filtering as a traversal security boundary",
+      "Remove symlinks from the memory tree",
+      "inspect both `MEMORY.md` and the content represented by its entries before prompt use",
     ],
     "topic discovery",
   );
 });
 
-test("privacy distinguishes local persistence from provider system context", () => {
+test("privacy warns that untrusted metadata enters privileged system context", () => {
   const privacy = section(readme, "Privacy and security boundary");
   assert.match(privacy, /persist `MEMORY\.md`/);
   assert.match(privacy, /generated lexical topic paths and descriptions/);
-  assert.match(privacy, /up to 1,024 bytes from local files or followed link targets/);
+  assert.match(privacy, /up to 1,024 bytes from each discovered file/);
   assert.match(privacy, /runtime never changes `\.gitignore`/);
+  assert.match(privacy, /Symlinks are unsupported and unsafe/);
+  assert.match(privacy, /remove them and inspect the resulting index and represented content/);
   assert.match(privacy, /host invokes the read-only transform/);
   assert.match(privacy, /becomes system context and may be sent to the configured model provider/);
-  assert.match(privacy, /including descriptions read through symlinks/);
-  assert.match(privacy, /Topic bodies are not directly injected/);
+  assert.match(privacy, /curated index content, generated filenames and paths, and descriptions/);
+  assert.match(privacy, /untrusted, prompt-injection-capable data/);
+  assert.match(privacy, /inserts that data into privileged system context/);
+  assert.match(privacy, /without escaping, delimiting, or lower-priority isolation/);
+  assert.match(privacy, /Excluding topic bodies does not make this metadata safe/);
   assert.match(privacy, /no redaction, encryption, sensitivity classification, consent flow, access control, or provider-retention policy/);
   assert.match(privacy, /Local persistence and model-provider prompt exposure are separate boundaries/);
 });
