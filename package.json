@@ -25,7 +25,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "test": "node --test test/memory.test.mjs",
+    "test": "node --test test/memory.test.mjs test/docs-contract.test.mjs",
     "pack-smoke": "node --test test/package-smoke.mjs",
     "check": "npm test && npm run pack-smoke && npm pack --dry-run",
     "doctor:local": "node src/cli.js doctor --repo .",
