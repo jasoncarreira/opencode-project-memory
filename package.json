@@ -17,7 +17,7 @@
     "./cli": "./src/cli.js"
   },
   "bin": {
-    "opencode-memory": "./src/cli.js"
+    "opencode-memory": "src/cli.js"
   },
   "files": [
     "src",
