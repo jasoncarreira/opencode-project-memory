@@ -144,13 +144,13 @@ When the host invokes the read-only transform, the capped raw index plus fixed i
 node src/cli.js install --local
 
 # Refresh from an existing nested directory; Git top-level is selected
-opencode-memory refresh --repo ./existing/nested-directory
+./node_modules/.bin/opencode-memory refresh --repo ./existing/nested-directory
 
 # Repair and report memory state (mutating)
-opencode-memory doctor --repo /path/to/repository
+./node_modules/.bin/opencode-memory doctor --repo /path/to/repository
 
 # Print prompt context after ensuring/refreshing it (mutating)
-opencode-memory context --repo /path/to/repository
+./node_modules/.bin/opencode-memory context --repo /path/to/repository
 ```
 
 To add a topic, create a non-hidden regular file under the memory directory, optionally add a strict first-line description, then run `refresh`. Registration with `install` or `install --local` is exact-spec idempotent, so changing between those forms can leave both distinct entries for you to reconcile.

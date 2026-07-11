@@ -25,7 +25,7 @@ npm run check
 
 That script runs, in order:
 
-1. `npm test` — the configured Node test suite (currently memory behavior tests).
+1. `npm test` — the configured Node test suite, including memory behavior and public documentation-contract coverage.
 2. `npm run pack-smoke` — packs the package, installs it into temporary consumers, and verifies the packed runtime, exports, binary, CLI behavior, and isolated config behavior.
 3. `npm pack --dry-run` — reports the publishable package contents.
 
